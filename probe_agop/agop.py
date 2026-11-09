@@ -6,7 +6,7 @@ A site is a (sequence, position) pair; loss_s is the next-token cross-entropy at
 of block `layer` at the same position. As in the paper: 1,000 WikiText-103 lines truncated to 128 tokens, 8 positions
 per line sampled once with np.random.RandomState(42) (fixed across checkpoints and layers), every site weighted equally.
 The AGOP depends only on the model, the checkpoint and the layer, so all tasks share it.
-Pass a float32 model: in float16 the backward pass loses several percent of G at late checkpoints.
+Pass a float32 model.
 """
 import numpy as np
 import torch

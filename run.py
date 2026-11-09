@@ -33,9 +33,7 @@ REAL_SEEDS = (1001, 1002, 1003)                      # probe seeds of the real p
 CONTROL_SEEDS = (42, 43, 44)                         # label seeds of the type-matched controls
 CONTROL_INIT_OFFSET = 4000                           # the control with label seed s uses probe seed 4000 + s
 SCHEMA = 'concept-energy/v2'
-# Agreement with the paper: largest allowed |difference| over checkpoints. OE and CE differ slightly because the AGOP is
-# recomputed in float32 (the paper's cache mixes float32 and float16 runs); test accuracy and held-out R^2 match exactly
-# on an A100, and other GPUs may round differently.
+# Comparison with the paper's values (reference/): largest allowed |difference| over checkpoints.
 TOLERANCE = dict(oe=0.02, score=0.002)
 REPO = Path(__file__).resolve().parent
 

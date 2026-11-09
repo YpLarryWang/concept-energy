@@ -20,7 +20,7 @@ reproduces the POS result at layer 8 of Pythia-410M over the paper's 19 checkpoi
 on an A100). For every checkpoint it
 
 1. computes the **AGOP** `G` of the next-token loss with respect to the layer's residual stream (1,000 WikiText-103 lines,
-   8 sampled positions each);
+   up to 8 sampled positions each);
 2. extracts the layer's word representations on UD English EWT and trains **3 real probes** (16 UPOS classes) and
    **3 type-matched control probes** (each word type gets a fixed random label with the real class shares);
 3. measures each probe's **Optimization Engagement**: with `U` the top `k` right singular vectors of the probe's
@@ -99,29 +99,9 @@ runs/pythia-410m/
   event_times.png, .pdf           with all layers of one or more tasks: task-level t^D against t^E
 ```
 
-The run also prints a table of all checkpoints and, per (task, layer), the largest difference from the paper.
-A result passes when OE and CE differ from the paper by at most 0.02 bits, accuracies and R² by at most 0.002, and,
-on the full checkpoint grid, the event times are identical.
-
-## Agreement with the paper
-
-We reran the release on an A100 (Python 3.12, torch 2.7.1, transformers 4.57.3) and compared with the paper's values
-(largest absolute differences over checkpoints of the seed-averaged curves):
-
-- **POS, Pythia-410M, layers 0, 6, 8, 12, 18 and 23, all 19 checkpoints:** test accuracies within 5e-5 (one test word
-  in 20,706); CE within 0.0054 bits (σ₀ is about 0.05 bits); OE within 0.012 bits, the largest at layer 0 and step
-  128000, whose paper AGOP was a float16 run; t^D and t^E identical at every layer.
-- **The other six classification tasks, Pythia-410M, layer 8, steps 512 and 143000:** test accuracies within 2e-5;
-  OE and CE within 0.005 bits.
-- **The five n-gram tasks, same cells:** held-out R² within 2e-7; OE within 0.007 and CE within 0.011 bits (σ₀ is about
-  0.25 bits for `k` = 1).
-- The data of all 12 tasks (words, labels, control labels, n-gram targets and splits) is identical to the paper's, and
-  `tests/` recomputes every per-layer event and task-level event time of the paper from `reference/`.
-
-OE differs slightly because the AGOP is recomputed in float32. The paper's AGOP files mix float32 and float16 runs
-(Pythia-1B, the last layer of Pythia-410M, and step 128000 of Pythia-410M were float16); float16 results depend on the
-GPU, so float32 is the better reference. For Pythia-1B, the float32 AGOP differs from the paper's by about 0.2% at middle
-and late layers and up to 4% at layer 0 of late checkpoints; we did not rerun the Pythia-1B probes for this release.
+The run also prints a table of all checkpoints and compares each (task, layer) with the paper's values in
+`reference/`: it passes when OE and CE are within 0.02 bits, accuracies and R² within 0.002 and, on the full checkpoint
+grid, the event times are the same.
 
 ## How the code is organised
 

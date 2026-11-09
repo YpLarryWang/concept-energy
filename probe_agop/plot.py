@@ -1,23 +1,34 @@
-"""The figure of one probe at one layer: OE, CE and decodability over pretraining."""
+"""Figures: one probe at one layer over pretraining (OE, CE, decodability), and the task-level event times."""
+import math
+
 import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .events import HALF_STEP
+
 REAL, CONTROL, CE, SEL = '#2C6BAC', '#555555', '#2E8B57', '#B03A2E'
+TICKS = ([1, 10, 100, 1000, 10000, 100000], ['1', '10', '100', '1k', '10k', '100k'])
 
 
 def _axis(ax, steps, ylabel):
     ax.set_xscale('log')
-    ax.set_xticks([1, 10, 100, 1000, 10000, 100000], ['1', '10', '100', '1k', '10k', '100k'])
+    ax.set_xticks(*TICKS)
     ax.set_xlim(steps[0] * 0.8, steps[-1] * 1.25)
     ax.set_xlabel('Pretraining step')
     ax.set_ylabel(ylabel)
     ax.grid(alpha=0.2)
 
 
-def plot_layer(summary, path):
+def _save(fig, path):
+    for ext in ('png', 'pdf'):
+        fig.savefig(path.with_suffix('.' + ext), dpi=200, facecolor='white')
+    plt.close(fig)
+
+
+def plot_layer(summary, model, path):
     s = summary['curves']
     steps = np.array(s['steps'])
     ev = summary['events']
@@ -46,17 +57,42 @@ def plot_layer(summary, path):
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), frameon=False, fontsize=8)
 
     ax = axes[2]
-    ax.plot(steps, s['acc_real'], color=REAL, lw=1.4, label='real probe, real labels')
-    ax.plot(steps, s['acc_control'], color=CONTROL, lw=1.4, label='control probe, control labels')
+    ax.plot(steps, s['score_real'], color=REAL, lw=1.4, label='real probe, real labels')
+    ax.plot(steps, s['score_control'], color=CONTROL, lw=1.4, label='control probe, control labels')
     ax.plot(steps, s['selectivity'], color=SEL, lw=1.8, label='selectivity = difference')
     ax.axvline(ev['t_D'], color=SEL, ls='--', lw=1, label=f"$t^D$ = {ev['t_D']:.0f}")
-    _axis(ax, steps, 'Test accuracy')
+    _axis(ax, steps, summary['score'])
     ax.set_title('Decodability')
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), frameon=False, fontsize=8)
 
     lag = 'no energy event' if ev['lag'] is None else rf"$\ln(t^E/t^D)$ = {ev['lag']:+.2f} ({ev['relation']})"
-    fig.suptitle(f"{summary['config']['model']}, layer {summary['config']['layer']}, {summary['task']}: {lag}", fontsize=10)
+    fig.suptitle(f"{model}, layer {summary['layer']}, {summary['title']}: {lag}", fontsize=10)
     fig.tight_layout()
-    for ext in ('png', 'pdf'):
-        fig.savefig(path.with_suffix('.' + ext), dpi=200, facecolor='white')
-    plt.close(fig)
+    _save(fig, path)
+
+
+def plot_event_times(results, model, path):
+    """Task-level t^D (x) against t^E (y), one point per task; points below the diagonal: energy before decodability.
+    The band marks |ln(t^E/t^D)| < ln2/2 (same time)."""
+    fig, ax = plt.subplots(figsize=(5.2, 5.2))
+    lo, hi = 10, 3e4
+    grid = np.geomspace(lo, hi, 50)
+    ax.fill_between(grid, grid * math.exp(-HALF_STEP), grid * math.exp(HALF_STEP), color='#DDDDDD', lw=0,
+                    label='same time (within half a checkpoint step)')
+    ax.plot(grid, grid, color='#888888', lw=0.8)
+    for name, r in results.items():
+        te = r['task_events']
+        ax.scatter(te['t_D'], te['t_E'], s=28, color=CE if te['relation'] == 'energy earlier' else
+                   SEL if te['relation'] == 'decodability earlier' else CONTROL, zorder=3)
+        ax.annotate(r['title'], (te['t_D'], te['t_E']), textcoords='offset points', xytext=(4, 3), fontsize=7)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_xlabel('$t^D$ (decodability event, step)')
+    ax.set_ylabel('$t^E$ (energy event, step)')
+    ax.set_title(f'{model}: task-level event times', fontsize=10)
+    ax.grid(alpha=0.2)
+    ax.legend(loc='upper left', frameon=False, fontsize=7)
+    fig.tight_layout()
+    _save(fig, path)

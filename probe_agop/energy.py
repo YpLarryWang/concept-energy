@@ -1,7 +1,8 @@
 """Optimization Engagement (OE), Concept Energy (CE) and the null noise scale sigma_0.
 
 OE of a probe at one layer and checkpoint: let U be the top-k right singular vectors of the class-centred probe weights
-W (k = n_classes - 1) and G the AGOP of the same layer and checkpoint. Then
+W (k = n_classes - 1; for a one-output regression probe, k = 1 and U is its normalised weight vector) and G the AGOP of
+the same layer and checkpoint. Then
 
     OE = log2( (tr(U^T G U) / tr(G)) / (k / d) ),
 
@@ -18,6 +19,12 @@ def probe_subspace(W, k):
     centred = W - W.mean(axis=0, keepdims=True)
     _, _, vt = np.linalg.svd(centred, full_matrices=False)
     return vt[:k].T
+
+
+def probe_direction(w):
+    """The unit direction of a one-output (regression) probe w [1, d] or [d], as a column [d, 1] (k = 1)."""
+    w = np.asarray(w, dtype=np.float64).reshape(-1)
+    return (w / np.linalg.norm(w))[:, None]
 
 
 def optimization_engagement(U, G):

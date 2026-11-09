@@ -8,7 +8,7 @@ import numpy as np
 from probe_agop import controls, energy, events
 
 STEPS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 143000]
-REFERENCE = Path(__file__).resolve().parents[1]/'reference'/'pythia-410m_pos.json'
+REFERENCE = Path(__file__).resolve().parents[1]/'reference'
 
 
 def test_oe_is_zero_for_isotropic_agop_and_positive_on_top_eigenvectors():
@@ -62,13 +62,21 @@ def test_events_on_simple_curves():
     assert events.energy_event(STEPS, -np.ones(19)) is None
 
 
-def test_events_reproduce_the_paper_for_pythia_410m_pos():
-    ref = json.loads(REFERENCE.read_text())['layers']
-    per_layer = []
-    for layer in map(str, range(24)):
-        r = ref[layer]
-        ev = events.layer_events(r['steps'], np.array(r['ce']), np.array(r['selectivity']))
-        assert math.isclose(ev['t_D'], r['events']['t_D']) and ev['t_E'] == r['events']['t_E']
-        per_layer.append(ev)
-    task = events.task_events(per_layer)
-    assert round(task['t_D']) == 493 and round(task['t_E']) == 479 and task['relation'] == 'same time'
+def test_events_reproduce_the_paper_for_every_task_and_model():
+    """Per-layer events and task-level event times computed from the reference values (OE and scores, rounded to 7
+    decimals) equal the paper's."""
+    files = sorted(REFERENCE.glob('*/*.json'))
+    assert len(files) == 24
+    for path in files:
+        ref = json.loads(path.read_text())
+        per_layer = []
+        for layer, r in ref['layers'].items():
+            ce = np.mean(r['oe_real'], 1) - np.mean(r['oe_control'], 1)
+            selectivity = np.mean(r['score_real'], 1) - np.mean(r['score_control'], 1)
+            ev = events.layer_events(ref['steps'], ce, selectivity)
+            assert math.isclose(ev['t_D'], r['events']['t_D']) and ev['t_E'] == r['events']['t_E'], (path, layer)
+            per_layer.append(ev)
+        task = events.task_events(per_layer)
+        paper = ref['task_events']
+        assert math.isclose(task['t_D'], paper['t_D'], rel_tol=1e-6) and math.isclose(task['t_E'], paper['t_E'], rel_tol=1e-6)
+        assert task['relation'] == paper['relation'], path

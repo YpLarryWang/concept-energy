@@ -39,7 +39,7 @@ The same command runs any of the paper's 12 tasks:
 
 ```bash
 bash reproduce.sh TASK [LAYER] [MODEL]     # e.g. bash reproduce.sh trigram_pmi 12 pythia-1b
-bash reproduce.sh check                    # quick test: every task at layer 8, steps 512 and 143000 (~20 min)
+bash reproduce.sh check                    # quick test: every task at layer 8, steps 512 and 143000 (~20 min on an A100)
 bash reproduce.sh all [MODEL]              # all tasks x all layers x 19 checkpoints, plus the event-time figure
 ```
 

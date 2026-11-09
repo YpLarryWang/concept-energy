@@ -105,14 +105,16 @@ on the full checkpoint grid, the event times are identical.
 
 ## Agreement with the paper
 
-We reran the release on an A100 (Python 3.12, torch 2.7.1, transformers 4.57.3) and compared with the paper's values:
+We reran the release on an A100 (Python 3.12, torch 2.7.1, transformers 4.57.3) and compared with the paper's values
+(largest absolute differences over checkpoints of the seed-averaged curves):
 
-- **POS, Pythia-410M, layers 0, 6, 8, 12, 18 and 23, all 19 checkpoints:** every test accuracy is identical; CE differs
-  by at most 0.005 bits (σ₀ is about 0.05 bits); t^D and t^E are identical at every layer.
-- **The other six classification tasks, Pythia-410M, layer 8, steps 512 and 143000:** identical accuracies; OE and CE
-  within 0.005 bits.
-- **The five n-gram tasks, same cells:** identical held-out R²; OE and CE within 0.011 bits (σ₀ is about 0.25 bits for
-  `k` = 1).
+- **POS, Pythia-410M, layers 0, 6, 8, 12, 18 and 23, all 19 checkpoints:** test accuracies within 5e-5 (one test word
+  in 20,706); CE within 0.0054 bits (σ₀ is about 0.05 bits); OE within 0.012 bits, the largest at layer 0 and step
+  128000, whose paper AGOP was a float16 run; t^D and t^E identical at every layer.
+- **The other six classification tasks, Pythia-410M, layer 8, steps 512 and 143000:** test accuracies within 2e-5;
+  OE and CE within 0.005 bits.
+- **The five n-gram tasks, same cells:** held-out R² within 2e-7; OE within 0.007 and CE within 0.011 bits (σ₀ is about
+  0.25 bits for `k` = 1).
 - The data of all 12 tasks (words, labels, control labels, n-gram targets and splits) is identical to the paper's, and
   `tests/` recomputes every per-layer event and task-level event time of the paper from `reference/`.
 

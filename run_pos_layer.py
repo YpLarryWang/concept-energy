@@ -51,6 +51,9 @@ def run_checkpoint(step, args, cfg, splits, corpus, tokenizer, out):
     (train, test, tags), (control_train, control_test) = splits
     n_classes, k = len(tags), len(tags) - 1
     t0 = time.time()
+    on_gpu = args.device.startswith('cuda')
+    if on_gpu:
+        torch.cuda.reset_peak_memory_stats()
     # AGOP in float32 (late checkpoints are sensitive to float16 rounding in the backward pass); word representations in
     # float16, as in the paper. The float16 model is loaded afresh: model.half() would also round the rotary-embedding
     # frequencies, which from_pretrained keeps in float32.
@@ -78,7 +81,8 @@ def run_checkpoint(step, args, cfg, splits, corpus, tokenizer, out):
                            oe=energy.optimization_engagement(U, G), test_acc=probe.accuracy(p, X_test, y_te)))
     record = dict(step=step, config_fingerprint=fingerprint(cfg), k=k, sigma0=energy.sigma0(G, k),
                   participation_ratio=energy.participation_ratio(G), probes=probes,
-                  seconds=dict(agop=t_agop - t0, representations=t_reps - t_agop, probes=time.time() - t_reps))
+                  seconds=dict(agop=t_agop - t0, representations=t_reps - t_agop, probes=time.time() - t_reps),
+                  peak_gpu_memory_gb=torch.cuda.max_memory_allocated() / 2**30 if on_gpu else None)
     path = out/'checkpoints'/f'step{step}.json'
     path.write_text(json.dumps(record, indent=1))
     real = [p['oe'] for p in probes if p['kind'] == 'real']
@@ -129,6 +133,8 @@ def print_summary(summary):
     t_e = 'none' if ev['t_E'] is None else f"{ev['t_E']:.0f}"
     lag = 'n/a' if ev['lag'] is None else f"{ev['lag']:+.2f} ({ev['relation']})"
     print(f"\nt^D = {ev['t_D']:.0f}   t^E = {t_e}   lag ln(t^E/t^D) = {lag}")
+    if len(c['steps']) < len(CHECKPOINTS):
+        print('(event times are only meaningful on the full checkpoint grid)')
     snr = st['median_ce_over_sigma0_from_step128']
     print(f"sigma0 (k = {st['k']}): median {st['median_sigma0']:.3f} bits; median CE/sigma0 from step 128 on: "
           f"{'n/a' if snr is None else f'{snr:.1f}'}; seed SD of OE / sigma0: real {st['seed_sd_over_sigma0']['real']:.2f}, "

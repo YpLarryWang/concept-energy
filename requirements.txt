@@ -1,4 +1,4 @@
-# Tested with Python 3.11 on an NVIDIA A100 (40 GB).
+# Tested with Python 3.12 in a fresh virtual environment on an NVIDIA A100 (40 GB).
 torch==2.7.1
 transformers==4.57.3
 numpy>=1.26

@@ -10,10 +10,14 @@ the two line up over training.
 ## One command, one result
 
 ```bash
-python run_pos_layer.py --layer 8 --out runs/pythia-410m_pos_layer8
+git clone https://github.com/YpLarryWang/concept-energy.git && cd concept-energy
+python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+bash reproduce.sh check     # environment test (~5 min): GPU, data, 2 checkpoints compared with the paper -> PASS/FAIL
+bash reproduce.sh           # the result: POS probes at layer 8 of Pythia-410M over 19 checkpoints (~30 min)
 ```
 
-For one layer of Pythia-410M and each of the paper's 19 checkpoints (step 1 to 143k), this
+`bash reproduce.sh` runs `python run_pos_layer.py --layer 8 --out runs/pythia-410m_pos_layer8` (`bash reproduce.sh 12`
+for layer 12). For one layer of Pythia-410M and each of the paper's 19 checkpoints (step 1 to 143k), this
 
 1. computes the **AGOP** `G` of the next-token loss with respect to the layer's residual stream (1,000 WikiText-103 lines,
    8 sampled positions each);
@@ -31,21 +35,18 @@ command above:
 
 ![OE, CE and decodability of POS probes at layer 8 of Pythia-410M](assets/pythia-410m_pos_layer8.png)
 
-## Setup
+## Requirements and details
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-bash scripts/download_data.sh       # UD English EWT v2.17 and WikiText-103 (~320 MB) into data/, version-checked
-python -m pytest tests              # CPU-only checks of the metrics (no model needed)
-```
+- Linux with one NVIDIA GPU. Tested on an A100 (40 GB): about 95 s per checkpoint, at most 4.6 GB of GPU memory
+  allocated by PyTorch, so a GPU with 8 GB or more should suffice. Other GPUs should work but are untested; the check compares with the paper within
+  tolerances (0.01 bits for OE and CE, 0.002 for accuracies) because float16 results may differ slightly across GPUs.
+- Python 3.12 with the pinned versions in `requirements.txt` (tested in a fresh virtual environment). The CPU-only
+  metric tests run with `python -m pytest tests`.
+- Data: the first call of `reproduce.sh` runs `bash scripts/download_data.sh`, which downloads UD English EWT v2.17 and
+  WikiText-103 (~320 MB) into `data/` and checks that they are the versions used in the paper. `transformers` downloads
+  the Pythia checkpoints (about 0.9 GB each) into the Hugging Face cache on first use.
 
-`run_pos_layer.py` needs a GPU: about 100 s per checkpoint on one A100 (40 GB), about 30 min for all 19 checkpoints,
-plus downloading the Pythia checkpoints from Hugging Face (about 0.9 GB each). For a quick check, run two checkpoints:
-
-```bash
-python run_pos_layer.py --layer 8 --checkpoints 512,143000 --out runs/quick
-```
+`run_pos_layer.py` can also be called directly:
 
 | Argument | Default | Meaning |
 |---|---|---|
@@ -78,6 +79,7 @@ read from the paper's cache), and the event times are the same (t^D = 716, t^E =
 
 | File | Content |
 |---|---|
+| `reproduce.sh` | environment test (`check`) and the one-command run |
 | `run_pos_layer.py` | the experiment above |
 | `probe_agop/data.py` | UD EWT words and UPOS labels; the WikiText-103 AGOP corpus (with the paper's sentence filter) |
 | `probe_agop/model.py` | loading checkpoints; reading a block's output with a forward hook; word representations |

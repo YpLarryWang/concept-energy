@@ -17,8 +17,7 @@ Regression (token level; probe = linear regression, score = held-out R^2, k = 1;
   bigram_pmi        log p(w_t | w_{t-1}) - log p(w_t)
   trigram_lp        log p(w_t | w_{t-2} w_{t-1})
   trigram_pmi       log p(w_t | w_{t-2} w_{t-1}) - log p(w_t | w_{t-1})
-read at the last token w_t of the n-gram, with its WikiText-103 line as context. The control is the type-matched pool
-control (ngram.pool_control).
+read at the last token w_t of the n-gram, with its WikiText-103 line as context. Control targets: ngram.pool_control.
 """
 import json
 from dataclasses import dataclass
@@ -65,15 +64,16 @@ class WordTaskData:
 
 @dataclass
 class TokenTaskData:
-    """An n-gram task: the token positions it reads (train and eval pool), centred targets, and control targets."""
+    """An n-gram task: the token positions it reads (training set, then test set), centered targets, and control
+    targets."""
     key: str
     lines: list              # token ids of the probe lines
-    line_of: np.ndarray      # per sample (train pool, then eval pool): its line and position
+    line_of: np.ndarray      # per sample (training set, then test set): its line and position
     position: np.ndarray
     n_train: int
     y_train: torch.Tensor
     y_test: torch.Tensor
-    controls: dict           # control label seed -> (train targets, eval targets), each centred by its train-pool mean
+    controls: dict           # control label seed -> (training targets, test targets), each centered by its training-set mean
     k: int = 1
 
     def representations(self, model, tokenizer, layers):

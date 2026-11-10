@@ -2,9 +2,11 @@
 
 Code for the NeurIPS 2026 paper by Yupei Wang, Neil Mallinar, Mikhail Belkin and Alex Warstadt (UC San Diego).
 
-A linear probe tells us that a concept can be read out of a layer. This code asks a different question: does the language-modelling loss itself care about the probe's directions? At each pretraining checkpoint we compare the probe's weight subspace with the average gradient outer product (AGOP) of the next-token loss at the same layer, and track how the two line up over training.
+A linear probe tells us that a concept can be read out of a layer. This code asks a different question: does the language-modeling loss itself care about the probe's directions? At each pretraining checkpoint we compare the probe's weight subspace with the average gradient outer product (AGOP) of the next-token loss at the same layer, and track how the two line up over training.
 
 ## One command
+
+You need an NVIDIA GPU with CUDA.
 
 ```bash
 git clone https://github.com/YpLarryWang/concept-energy.git && cd concept-energy
@@ -12,23 +14,24 @@ python -m venv .venv && source .venv/bin/activate && pip install -r requirements
 bash reproduce.sh
 ```
 
-`bash reproduce.sh` checks the environment (GPU, package versions), downloads the data on the first call, and reproduces the POS result at layer 8 of Pythia-410M over the paper's 19 checkpoints (step 1 to 143k, about 35 minutes on an A100). For every checkpoint it
+`bash reproduce.sh` checks the environment (GPU, package versions), downloads the data on the first call, and reproduces the POS result at layer 8 of Pythia-410M over the paper's 19 checkpoints (step 1 to 143k, about 35 minutes on an A100). It runs these steps:
 
-1. computes the AGOP $G$ of the next-token loss with respect to the layer's residual stream, on up to 8 sampled positions in each of 1,000 WikiText-103 lines;
-2. extracts the layer's word representations on UD English EWT and trains 3 real probes (16 UPOS classes) and 3 type-matched control probes (each word type gets a fixed random label with the real class shares);
-3. measures each probe's Optimization Engagement (OE) with $G$;
-4. reports the Concept Energy (CE), the decodability as selectivity (real score minus control score), the null noise scale $\sigma_0$ of OE, and the event times $t^D$ (fastest rise of decodability) and $t^E$ (first clear peak of CE) with their lag $\ln(t^E / t^D)$;
-5. draws the three curves and prints the paper's values for the same layer next to the run's (the paper's values are in `reference/`).
+1. at every checkpoint, compute the AGOP $G$ of the next-token loss with respect to the layer's output, on up to 8 sampled positions in each of 1,000 WikiText-103 lines;
+2. at every checkpoint, extract the layer's word representations on UD English EWT and train 3 real probes (16 UPOS classes) and 3 control probes (each word type gets one fixed random label, drawn with the class shares of the real labels);
+3. measure each probe's Optimization Engagement (OE) with $G$, and the null noise scale $\sigma_0$ of OE;
+4. compute the Concept Energy (CE) and the decodability, which is the real probes' test accuracy minus the control probes' accuracy on their own labels;
+5. find the event times $t^D$ (fastest rise of decodability) and $t^E$ (first clear peak of CE), and their lag $\ln(t^E / t^D)$;
+6. plot OE, CE and decodability over training, and print the paper's values for the same layer next to the run's (the paper's values are in `reference/`).
 
 With $\ell_s$ the next-token cross-entropy at a sampled position $s$ and $h_s$ the layer's output there,
 
 $$G = \frac{1}{N} \sum_{s=1}^{N} g_s g_s^\top, \qquad g_s = \frac{\partial \ell_s}{\partial h_s}.$$
 
-For a probe with $K$ classes, let $U \in \mathbb{R}^{d \times k}$ hold the top $k = K - 1$ right singular vectors of its class-centred weights, where $d$ is the hidden size. Then
+For a probe with $K$ classes, let $U \in \mathbb{R}^{d \times k}$ hold the top $k = K - 1$ right singular vectors of its class-centered weights, where $d$ is the hidden size. Then
 
 $$\mathrm{OE} = \log_2 \frac{\operatorname{tr}(U^\top G U) / \operatorname{tr}(G)}{k / d}, \qquad \mathrm{CE} = \overline{\mathrm{OE}}_{\text{real}} - \overline{\mathrm{OE}}_{\text{control}},$$
 
-where the bars average over the three seeds. $\mathrm{OE} = 0$ for a random subspace of the same dimension.
+where the bars average over the three seeds. $\mathrm{OE} = 0$ means that the probe's subspace captures the same share of $\operatorname{tr}(G)$ as a uniformly random subspace of the same dimension does in expectation, $k/d$; each additional unit doubles that share.
 
 ![OE, CE and decodability of POS probes at layer 8 of Pythia-410M](assets/pythia-410m_pos_layer8.png)
 
@@ -44,20 +47,25 @@ bash reproduce.sh all [MODEL]              # all tasks x all layers x 19 checkpo
 
 | Task | In the paper | Data | Probe reads | Labels or targets | Score |
 |---|---|---|---|---|---|
-| `pos` | POS | UD English EWT | each non-punctuation word | 16 UPOS tags | test accuracy |
-| `dep_relation` | Dependency relation | UD English EWT | each non-punctuation word | 30 relations to the head (subtype stripped) | test accuracy |
-| `dep_length` | Dependency length | UD English EWT | each non-punctuation word | ROOT, or head left/right at distance 1, 2, 3–5, 6+ | test accuracy |
-| `dep_depth` | Dependency depth | UD English EWT | each non-punctuation word | arcs up to the root: 0–10, 11+ | test accuracy |
-| `ner` | NER | UNER English EWT | entity tokens | PER, ORG, LOC | test accuracy |
-| `noun_supersense` | Noun supersense | STREUSLE 5.0 | single-word noun expressions | 12 supersenses | test accuracy |
-| `verb_supersense` | Verb supersense | STREUSLE 5.0 | single-word verb expressions | 9 supersenses | test accuracy |
-| `unigram_lp` | Unigram LP | WikiText-103 | token $w_t$ | $\log p(w_t)$ | held-out $R^2$ |
-| `bigram_lp` | Bigram LP | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
-| `bigram_pmi` | Bigram PMI | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1}) - \log p(w_t)$ | held-out $R^2$ |
-| `trigram_lp` | Trigram LP | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1})$ | held-out $R^2$ |
-| `trigram_pmi` | Trigram PMI | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1}) - \log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
+| `pos` | `POS` | UD English EWT | each non-punctuation word | 16 UPOS tags | test accuracy |
+| `dep_relation` | `DependencyRelation` | UD English EWT | each non-punctuation word | 30 relations to the head (subtype stripped) | test accuracy |
+| `dep_length` | `DependencyLength` | UD English EWT | each non-punctuation word | ROOT, or head left/right at distance 1, 2, 3–5, 6+ | test accuracy |
+| `dep_depth` | `DependencyDepth` | UD English EWT | each non-punctuation word | arcs up to the root: 0–10, 11+ | test accuracy |
+| `ner` | `NER` | UNER English EWT | entity tokens | PER, ORG, LOC | test accuracy |
+| `noun_supersense` | `SupersenseNoun` | STREUSLE 5.0 | single-word noun expressions | 12 supersenses | test accuracy |
+| `verb_supersense` | `SupersenseVerb` | STREUSLE 5.0 | single-word verb expressions | 9 supersenses | test accuracy |
+| `unigram_lp` | `UnigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t)$ | held-out $R^2$ |
+| `bigram_lp` | `BigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
+| `bigram_pmi` | `BigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1}) - \log p(w_t)$ | held-out $R^2$ |
+| `trigram_lp` | `TrigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1})$ | held-out $R^2$ |
+| `trigram_pmi` | `TrigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1}) - \log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
 
-Classification tasks keep the classes with at least 100 training and 10 test words, and every word is read in its whole sentence. The n-gram targets are counted on WikiText-103 with the Pythia tokenizer. Their train/eval split is by n-gram, so the eval pool holds only n-grams unseen in training. The n-gram probe is a linear regression, so $k = 1$ and $U$ is its normalised weight vector, and its control gives every n-gram the target of a random sample of the same pool. Details are in the docstrings of `probe_agop/tasks.py` and `probe_agop/ngram.py`.
+- **Classification tasks.** Classes with at least 100 training and 10 test words are kept, and every word is read at its last sub-word token, with its whole sentence as context. The control task gives each word type one fixed random label, drawn with the class shares of the real training labels.
+- **N-gram regression tasks.** The targets are counted on WikiText-103 with the Pythia tokenizer, and the probe reads the last token $w_t$ of each n-gram in its line. The training and test sets are split by n-gram type, so no test n-gram occurs in training. The probe is a linear regression, so $k = 1$ and $U$ is its normalized weight vector. The control task gives each n-gram type a target drawn at random from the token-level targets of the same set (training or test).
+
+Details are in the docstrings of `probe_agop/tasks.py` and `probe_agop/ngram.py`.
+
+**Layers** are numbered from 0, and layer $L$ is the output of transformer block $L$: 0–23 for Pythia-410M and 0–15 for Pythia-1B. The paper's figures number layers from 1, so layer 8 here is layer 9 there.
 
 `reproduce.sh` calls `run.py`, which takes any combination directly:
 
@@ -68,7 +76,7 @@ python run.py --task pos,ner,unigram_lp --layers 0,8,23 --model pythia-410m
 | Argument | Default | Meaning |
 |---|---|---|
 | `--task` | (required) | comma-separated task names, or `all` |
-| `--layers` | (required) | comma-separated transformer blocks (0–23 for Pythia-410M, 0–15 for Pythia-1B), or `all` |
+| `--layers` | (required) | comma-separated layers (0–23 for Pythia-410M, 0–15 for Pythia-1B), or `all` |
 | `--model` | `pythia-410m` | `pythia-410m` or `pythia-1b` |
 | `--checkpoints` | the paper's 19 steps | comma-separated training steps |
 | `--out` | `runs` | output root; results go to `OUT/<model>/` and a repeated command resumes |
@@ -92,7 +100,11 @@ runs/pythia-410m/
 
 The run also prints a table of all checkpoints and, for each task and layer, the paper's values next to the run's.
 
-## How the code is organised
+## Precomputed probes and AGOP matrices
+
+All probes and AGOP matrices behind the paper's numbers are on Hugging Face, in the organization [disentangle-concept-learning](https://huggingface.co/disentangle-concept-learning): one dataset with the AGOP matrices of both models at every layer and checkpoint (`agop`), and one dataset of probes per task (`cls-*` and `reg-*`; 54,720 probes in all, each with its OE and test score). Their pages show how to compute OE from these files without running a language model.
+
+## How the code is organized
 
 | File | Content |
 |---|---|
@@ -100,16 +112,22 @@ The run also prints a table of all checkpoints and, for each task and layer, the
 | `run.py` | the experiment: AGOP, probes, OE, CE, decodability, $\sigma_0$, events, figures |
 | `probe_agop/data.py` | reading UD English EWT, UNER English EWT, STREUSLE and WikiText-103 (with checks of every file) |
 | `probe_agop/tasks.py` | the 12 tasks: labels, classes, rows, control labels, probe fitting |
-| `probe_agop/ngram.py` | n-gram counts, targets, the train/eval split and the pool control |
-| `probe_agop/controls.py` | type-matched control labels of the classification tasks |
+| `probe_agop/ngram.py` | n-gram counts, targets, the training/test split and the control targets |
+| `probe_agop/controls.py` | control labels of the classification tasks |
 | `probe_agop/model.py` | loading checkpoints; reading block outputs with forward hooks; word and token representations |
 | `probe_agop/agop.py` | the AGOP of the next-token loss at sampled positions, for several layers at once |
-| `probe_agop/probe.py` | input centring and the probe training recipe (Adam, 10 epochs) |
+| `probe_agop/probe.py` | input centering and the probe training recipe (Adam, 10 epochs) |
 | `probe_agop/energy.py` | OE, the participation ratio of $G$, and $\sigma_0$ |
 | `probe_agop/events.py` | $t^D$, $t^E$, the lag, and the layer-weighted task-level event times |
 | `probe_agop/plot.py` | the figures |
 | `reference/<model>/<task>.json` | the paper's OE and scores per layer, checkpoint and seed, and its event times |
 | `tests/test_metrics.py` | CPU checks of the metrics, including the paper's event times of every task and model |
+
+The tests need no GPU and no data download:
+
+```bash
+pytest tests
+```
 
 ## Data and licenses
 
@@ -121,7 +139,7 @@ The run also prints a table of all checkpoints and, for each task and layer, the
 | [UNER English EWT](https://github.com/UniversalNER/UNER_English-EWT) | NER | commit `8ed072de` | CC BY-SA 4.0 |
 | [STREUSLE](https://github.com/nert-nlp/streusle) | noun and verb supersenses | 5.0 (commit `8ba61fe4`) | CC BY-SA 4.0 |
 
-`scripts/download_data.sh` fetches the exact files used in the paper and checks their SHA-256, and `transformers` downloads the Pythia checkpoints on first use. The paper's behavioural analyses (subject–verb agreement with BLiMP, output KL) and robustness checks are not part of this repository.
+`scripts/download_data.sh` fetches the exact files used in the paper and checks their SHA-256, and `transformers` downloads the Pythia checkpoints on first use. The paper's behavioral analyses (subject–verb agreement with BLiMP, output KL) and robustness checks are not part of this repository.
 
 ## Citation
 

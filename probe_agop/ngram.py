@@ -1,4 +1,4 @@
-"""The five n-gram regression tasks: data, targets, train/eval split and pool controls.
+"""The five n-gram regression tasks: data, targets, training/test split and control targets.
 
 Statistics are counted on WikiText-103 with the Pythia tokenizer (no special tokens, lines not truncated):
   unigram counts         over every line with at least one token and no URL-like token ("loose" lines);
@@ -11,12 +11,13 @@ lines are used. Targets (natural log, unsmoothed; every probe n-gram occurs in t
   bigram_pmi    log p(w_t | w_{t-1}) - log p(w_t)                    (p(w_t) over bigram positions)
   trigram_lp    log p(w_t | w_{t-2} w_{t-1})
   trigram_pmi   log p(w_t | w_{t-2} w_{t-1}) - log p(w_t | w_{t-1})
-Train/eval split by n-gram key (the token for unigram_lp, the bigram or trigram otherwise), so the eval pool holds only keys
-unseen in training: keys occurring at least twice are shuffled with torch.Generator().manual_seed(42) and 80% go to
-training; for bigram and trigram keys, eval keys whose context or last token never occurs in training are dropped.
-Pool controls (label seeds 42-44, one np.random.default_rng(seed) for the train pool, then the eval pool):
-  type_matched  every key of a pool gets the target of a random sample of the same pool (all samples of the key share it)
-Targets are centred by subtracting their train-pool mean.
+Training/test split by n-gram type (the token for unigram_lp, the bigram or trigram otherwise), so the test set holds only
+types unseen in training: keys occurring at least twice are shuffled with torch.Generator().manual_seed(42) and 80% go to
+training; for bigram and trigram types, test types whose context or last token never occurs in training are dropped.
+Control targets (label seeds 42-44, one np.random.default_rng(seed) for the training set, then the test set):
+  type_matched  every n-gram type of a set gets the target of one random sample of the same set (all samples of the type
+                share it)
+Targets are centered by subtracting their training-set mean.
 """
 import random
 from functools import lru_cache
@@ -167,7 +168,7 @@ def targets(task, cols, S):
 
 
 def split(order, cols):
-    """Train and eval sample indices (ascending), split by n-gram key."""
+    """Training and test sample indices (ascending), split by n-gram key."""
     g = torch.Generator().manual_seed(SPLIT_SEED)
     cur = torch.from_numpy(cols[-1])
     if order == 1:
@@ -186,7 +187,7 @@ def split(order, cols):
         perm = eligible[torch.randperm(eligible.numel(), generator=g)]
         n_train = min(max(1, int(round(TRAIN_FRACTION * perm.numel()))), perm.numel() - 1)
         train_keys, eval_keys = perm[:n_train], perm[n_train:]
-        # Drop eval keys whose context or last token never occurs in training.
+        # Drop test keys whose context or last token never occurs in training.
         in_train = torch.isin(keys, train_keys).numpy()
         seen_context = set(zip(*(c[in_train].tolist() for c in cols[:-1])))
         seen_last = set(cols[-1][in_train].tolist())
@@ -208,8 +209,8 @@ def key_index(cols):
 
 
 def pool_control(y, key, train, test, seed):
-    """Type-matched pool control targets (float32): within each pool, every key takes the target of one random sample of
-    the same pool."""
+    """Control targets (float32): within the training set and within the test set, every key takes the target of one random
+    sample of the same set."""
     out = np.full(y.size, np.nan)
     rng = np.random.default_rng(seed)
     for rows in (train, test):
@@ -222,6 +223,6 @@ def pool_control(y, key, train, test, seed):
 
 
 def centre_targets(y, train):
-    """Targets minus their train-pool mean (float64 mean), float32."""
+    """Targets minus their training-set mean (float64 mean), float32."""
     y = torch.from_numpy(y).double()
     return (y - y[torch.from_numpy(train)].mean()).float()

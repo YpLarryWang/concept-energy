@@ -27,7 +27,7 @@ With $\ell_s$ the next-token cross-entropy at a sampled position $s$ and $h_s$ t
 
 $$G = \frac{1}{N} \sum_{s=1}^{N} g_s g_s^\top, \qquad g_s = \frac{\partial \ell_s}{\partial h_s}.$$
 
-For a probe with $K$ classes, let $U \in \mathbb{R}^{d \times k}$ hold the top $k = K - 1$ right singular vectors of its class-centered weights, where $d$ is the hidden size. Then
+For a probe with $K$ classes, let $U$, a $d \times k$ matrix, hold the top $k = K - 1$ right singular vectors of its class-centered weights, where $d$ is the hidden size. Then
 
 $$\mathrm{OE} = \log_2 \frac{\mathrm{tr}(U^\top G U) / \mathrm{tr}(G)}{k / d}, \qquad \mathrm{CE} = \overline{\mathrm{OE}}_{\text{real}} - \overline{\mathrm{OE}}_{\text{control}},$$
 

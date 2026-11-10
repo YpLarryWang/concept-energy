@@ -115,9 +115,9 @@ def probe_lines(root, tokenizer):
         return [ids.tolist() for ids in np.split(z['ids'], np.cumsum(z['lengths'])[:-1])]
     corpus = probe_corpus(*wikitext_pool(root))
     lines = [tokenizer(line, add_special_tokens=False, truncation=True, max_length=MAX_LENGTH)['input_ids'] for line in corpus]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, version=STATS_VERSION, vocab=len(tokenizer), lengths=np.array([len(x) for x in lines]),
-             ids=np.concatenate([np.asarray(x, dtype=np.int64) for x in lines]))
+    data.write_atomic(path, lambda f: np.savez(f, version=STATS_VERSION, vocab=len(tokenizer),
+                                               lengths=np.array([len(x) for x in lines]),
+                                               ids=np.concatenate([np.asarray(x, dtype=np.int64) for x in lines])))
     return lines
 
 

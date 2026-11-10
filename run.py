@@ -118,7 +118,7 @@ def run_checkpoint(step, todo, args, out, cache, corpus, tokenizer):
                                   probes=probes, seconds=time.time() - t1)
                     path = record_path(out, name, layer, step)
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(json.dumps(record, indent=1))
+                    data.write_text_atomic(path, json.dumps(record, indent=1))
                     oe = lambda kind: np.mean([p['oe'] for p in probes if p['kind'] == kind])
                     print(f'  {name:<16} layer {layer:>2}: OE real {oe("real"):+.3f}  OE control {oe("control"):+.3f}  '
                           f'CE {oe("real") - oe("control"):+.3f}  ({time.time() - t1:.0f} s)', flush=True)
@@ -189,9 +189,10 @@ def print_layer(summary):
               + (f" {paper['ce'][i]:>+8.3f}" if paper else '')
               + f" {c['sigma0'][i]:>7.3f} {c['score_real'][i]:>9.4f} {c['score_control'][i]:>11.4f} {c['selectivity'][i]:>+8.4f}"
               + (f" {paper['selectivity'][i]:>+13.4f}" if paper else ''))
+    t_d = 'undefined' if ev['t_D'] is None else f"{ev['t_D']:.0f}"
     t_e = 'none' if ev['t_E'] is None else f"{ev['t_E']:.0f}"
     lag = 'n/a' if ev['lag'] is None else f"{ev['lag']:+.2f} ({ev['relation']})"
-    print(f"t^D = {ev['t_D']:.0f}   t^E = {t_e}   lag ln(t^E/t^D) = {lag}")
+    print(f"t^D = {t_d}   t^E = {t_e}   lag ln(t^E/t^D) = {lag}")
     if paper and paper['events']:
         p = paper['events']
         p_e = 'none' if p['t_E'] is None else f"{p['t_E']:.0f}"
@@ -245,8 +246,7 @@ def main():
         path = out/name/'config.json'
         if path.exists() and fingerprint(json.loads(path.read_text())) != fingerprint(cfg):
             raise RuntimeError(f'{out/name} holds results of another configuration; use another --out')
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(cfg, indent=1))
+        data.write_text_atomic(path, json.dumps(cfg, indent=1))
         args.fingerprints[name] = fingerprint(cfg)
 
     todo = {step: {n: [l for l in layers if not record_path(out, n, l, step).exists()] for n in names} for step in steps}
@@ -274,7 +274,7 @@ def main():
             if ref:
                 summary['paper'] = paper_values(summary, ref)
             path = out/name/f'layer{layer}'
-            (path/'summary.json').write_text(json.dumps(summary, indent=1))
+            data.write_text_atomic(path/'summary.json', json.dumps(summary, indent=1))
             plot_layer(summary, args.model, path/'curves')
             print_layer(summary)
             per_layer[layer] = summary['events']
@@ -282,12 +282,14 @@ def main():
             te = events.task_events(list(per_layer.values()))
             result = dict(task=name, title=task.title, task_events=te, per_layer=per_layer,
                           paper=ref['task_events'] if ref else None)
-            (out/name/'task_events.json').write_text(json.dumps(result, indent=1))
+            data.write_text_atomic(out/name/'task_events.json', json.dumps(result, indent=1))
             p = ref['task_events'] if ref else None
-            print(f"\n{task.title}, all {len(layers)} layers: t^D = {te['t_D']:.0f}, t^E = {te['t_E']:.0f}, "
-                  f"lag {te['lag']:+.2f} ({te['relation']})"
+            mine = ('no layer has both events' if te is None else
+                    f"t^D = {te['t_D']:.0f}, t^E = {te['t_E']:.0f}, lag {te['lag']:+.2f} ({te['relation']})")
+            print(f"\n{task.title}, all {len(layers)} layers: {mine}"
                   + (f"; paper: t^D = {p['t_D']:.0f}, t^E = {p['t_E']:.0f}, lag {p['lag']:+.2f}" if p else ''))
     done = {n: json.loads((out/n/'task_events.json').read_text()) for n in tasks.TASKS if (out/n/'task_events.json').exists()}
+    done = {n: r for n, r in done.items() if r['task_events'] is not None}
     if done:
         plot_event_times(done, args.model, out/'event_times')
         print(f'\nWrote {out}/event_times.png ({len(done)} task(s) with all layers)')

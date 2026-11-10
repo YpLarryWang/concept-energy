@@ -80,3 +80,22 @@ def test_events_reproduce_the_paper_for_every_task_and_model():
         paper = ref['task_events']
         assert math.isclose(task['t_D'], paper['t_D'], rel_tol=1e-6) and math.isclose(task['t_E'], paper['t_E'], rel_tol=1e-6)
         assert task['relation'] == paper['relation'], path
+
+
+def test_decodability_event_is_undefined_without_a_rise():
+    steps = [1, 2, 4, 8, 16]
+    assert events.decodability_event(steps, [0.5] * 5) is None                       # flat
+    assert events.decodability_event(steps, [0.5, 0.4, 0.3, 0.2, 0.1]) is None       # falling
+    assert events.decodability_event([512], [0.5]) is None                           # one checkpoint
+    assert math.isclose(events.decodability_event(steps, [0, 0, 1, 1.2, 1.3]), math.sqrt(2 * 4))   # steepest rise
+    ev = events.layer_events(steps, [0, 1, 0, 0, 0], [0.5] * 5)
+    assert ev['t_D'] is None and ev['t_E'] == 2 and ev['lag'] is None and ev['relation'] is None
+
+
+def test_task_events_use_only_layers_with_both_events():
+    a = dict(t_D=100.0, t_E=200.0, weight=1.0)
+    no_d = dict(t_D=None, t_E=50.0, weight=5.0)
+    no_e = dict(t_D=10.0, t_E=None, weight=5.0)
+    te = events.task_events([a, no_d, no_e])
+    assert te['n_layers'] == 1 and math.isclose(te['t_D'], 100) and math.isclose(te['t_E'], 200)
+    assert events.task_events([no_d, no_e]) is None

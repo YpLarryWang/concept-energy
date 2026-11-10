@@ -60,12 +60,14 @@ def plot_layer(summary, model, path):
     ax.plot(steps, s['score_real'], color=REAL, lw=1.4, label='real probe, real labels')
     ax.plot(steps, s['score_control'], color=CONTROL, lw=1.4, label='control probe, control labels')
     ax.plot(steps, s['selectivity'], color=SEL, lw=1.8, label='selectivity = difference')
-    ax.axvline(ev['t_D'], color=SEL, ls='--', lw=1, label=f"$t^D$ = {ev['t_D']:.0f}")
+    if ev['t_D'] is not None:
+        ax.axvline(ev['t_D'], color=SEL, ls='--', lw=1, label=f"$t^D$ = {ev['t_D']:.0f}")
     _axis(ax, steps, summary['score'])
     ax.set_title('Decodability')
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), frameon=False, fontsize=8)
 
-    lag = 'no energy event' if ev['lag'] is None else rf"$\ln(t^E/t^D)$ = {ev['lag']:+.2f} ({ev['relation']})"
+    lag = ('no energy event' if ev['t_E'] is None else 'no decodability event' if ev['t_D'] is None else
+           rf"$\ln(t^E/t^D)$ = {ev['lag']:+.2f} ({ev['relation']})")
     fig.suptitle(f"{model}, layer {summary['layer']}, {summary['title']}: {lag}", fontsize=10)
     fig.tight_layout()
     _save(fig, path)

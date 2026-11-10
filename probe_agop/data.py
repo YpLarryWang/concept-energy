@@ -12,6 +12,7 @@ tokens containing a letter, and no URL-like token.
     python -m probe_agop.data DATA_DIR      checks every file and the derived dataset sizes
 """
 import hashlib
+import os
 import random
 import re
 import sys
@@ -58,6 +59,25 @@ def data_file(root, name):
             raise ValueError(f'{path} differs from the file used in the paper; run bash scripts/download_data.sh')
         _checked.add(path)
     return path
+
+
+def write_atomic(path, write):
+    """Write a file through write(binary file object) under a temporary name, then rename it into place, so that other
+    processes sharing the folder never read a partial file."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f'{path.name}.{os.getpid()}.tmp')
+    try:
+        with open(tmp, 'wb') as f:
+            write(f)
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def write_text_atomic(path, text):
+    write_atomic(path, lambda f: f.write(text.encode('utf-8')))
 
 
 def keep_sentence(tokens):

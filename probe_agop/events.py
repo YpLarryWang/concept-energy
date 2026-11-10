@@ -1,10 +1,11 @@
 """Event times on the checkpoint axis (paper Sec. 4, "Event times").
 
 All times live on a log-step axis.
-  t^D  decodability event: centre (geometric mean of the two ends) of the checkpoint interval where decodability rises
-       fastest per unit log-step.
+  t^D  decodability event: center (geometric mean of the two ends) of the checkpoint interval where decodability rises
+       fastest per unit log-step (the earliest on ties); undefined (None) when that largest slope is not positive or
+       there are fewer than two checkpoints.
   t^E  energy event: the earliest qualifying interior peak of [CE]_+ = max(CE, 0).
-  lag  ln(t^E / t^D); |lag| < ln2/2 counts as the same time, lag <= -ln2/2 as energy earlier, lag >= ln2/2 as
+  lag  ln(t^E / t^D), None when either event is undefined; |lag| < ln2/2 counts as the same time, lag <= -ln2/2 as energy earlier, lag >= ln2/2 as
        decodability earlier.
 
 A peak of [CE]_+ at checkpoint i is an interior local maximum (strictly above both neighbours). Its valleys are found by
@@ -21,9 +22,14 @@ MIN_PROMINENCE, HIGH_VALLEY_PROMINENCE, LOW_VALLEY_PROMINENCE = 0.05, 0.25, 0.75
 
 
 def decodability_event(steps, decodability):
+    """Center of the interval with the largest positive slope per unit log-step, or None."""
+    if len(steps) < 2:
+        return None
     log_steps = np.log(np.asarray(steps, dtype=float))
     slopes = np.diff(np.asarray(decodability, dtype=float)) / np.diff(log_steps)
-    i = int(np.argmax(slopes))
+    i = int(np.argmax(slopes))                              # argmax returns the earliest of tied maxima
+    if slopes[i] <= 0:
+        return None
     return float(math.exp(0.5 * (log_steps[i] + log_steps[i + 1])))
 
 
@@ -59,15 +65,15 @@ def relation(lag):
 
 def layer_events(steps, ce, decodability):
     t_d, t_e = decodability_event(steps, decodability), energy_event(steps, ce)
-    lag = None if t_e is None else math.log(t_e / t_d)
+    lag = None if t_e is None or t_d is None else math.log(t_e / t_d)
     return dict(t_D=t_d, t_E=t_e, lag=lag, relation=None if lag is None else relation(lag),
                 weight=float(np.maximum(ce, 0).max()))
 
 
 def task_events(per_layer):
-    """Task-level event times from several layers: geometric means over the layers with an energy event, weighted by
-    each layer's max [CE]_+ (paper eq. aggregated-event-time)."""
-    valid = [e for e in per_layer if e['t_E'] is not None and e['weight'] > 0]
+    """Task-level event times from several layers: geometric means over the layers where both events are defined,
+    weighted by each layer's max [CE]_+ (paper eq. aggregated-event-time); None when no layer qualifies."""
+    valid = [e for e in per_layer if e['t_E'] is not None and e['t_D'] is not None and e['weight'] > 0]
     if not valid:
         return None
     w = np.array([e['weight'] for e in valid])

@@ -156,8 +156,7 @@ def _ngram_family(root, order, tokenizer):
         line_of, position, cols = ngram.probe_stream(lines, order, n_lines, n_positions)
         out = dict(line_of=line_of, position=position, **{f'col{i}': c for i, c in enumerate(cols)})
         out.update({f'y_{n}': ngram.targets(n, cols, S) for n in meta['tasks']})
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(path, meta=json.dumps(meta), **out)
+        data.write_atomic(path, lambda f: np.savez(f, meta=json.dumps(meta), **out))
     cols = [out[f'col{i}'] for i in range(order)]
     train, test = ngram.split(order, cols)
     return lines, out, cols, train, test

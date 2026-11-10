@@ -14,9 +14,8 @@ lines are used. Targets (natural log, unsmoothed; every probe n-gram occurs in t
 Training/test split by n-gram type (the token for unigram_lp, the bigram or trigram otherwise), so the test set holds only
 types unseen in training: keys occurring at least twice are shuffled with torch.Generator().manual_seed(42) and 80% go to
 training; for bigram and trigram types, test types whose context or last token never occurs in training are dropped.
-Control targets (label seeds 42-44, one np.random.default_rng(seed) for the training set, then the test set):
-  type_matched  every n-gram type of a set gets the target of one random sample of the same set (all samples of the type
-                share it)
+Control targets (label seeds 42-44, one np.random.default_rng(seed) for the training set, then the test set): every
+n-gram type of a set gets the target of one random sample of the same set (all samples of the type share it).
 Targets are centered by subtracting their training-set mean.
 """
 import random

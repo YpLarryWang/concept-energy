@@ -40,10 +40,10 @@ def test_sigma0_matches_random_subspaces():
     assert abs(np.std(oe) / energy.sigma0(G, k) - 1) < 0.1
 
 
-def test_type_matched_labels_follow_word_types_and_class_shares():
+def test_control_labels_follow_word_types_and_class_shares():
     words = ['the', 'cat', 'sat', 'on', 'the', 'mat'] * 500 + [f'w{i}' for i in range(20000)]
     labels = np.r_[np.zeros(13000, int), np.ones(10000, int)]
-    train, test = controls.type_matched_labels(words, labels, ['the', 'cat'], 2, seed=42)
+    train, test = controls.control_labels(words, labels, ['the', 'cat'], 2, seed=42)
     first = {}
     for w, y in zip(words, train):
         assert first.setdefault(w, y) == y

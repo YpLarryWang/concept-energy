@@ -9,7 +9,7 @@ Classification (word level; probe = softmax regression, score = test accuracy, k
   noun_supersense   supersense of single-word noun expressions (STREUSLE)
   verb_supersense   supersense of single-word verb expressions (STREUSLE)
 A class is kept when it has at least 100 training and 10 test words (words of dropped classes are removed); the
-sentences stay whole. The control of every classification task is the type-matched control (controls.py).
+sentences stay whole. Control labels of every classification task: controls.py.
 
 Regression (token level; probe = linear regression, score = held-out R^2, k = 1; see ngram.py):
   unigram_lp        log p(w_t)
@@ -122,7 +122,7 @@ class Classification:
         forms = {s: [words[s].forms[i] for i in rows[s]] for s in words}
         ctrl = {}
         for seed in CONTROL_SEEDS:
-            tr, te = controls.type_matched_labels(forms['train'], y['train'], forms['test'], len(kept), seed)
+            tr, te = controls.control_labels(forms['train'], y['train'], forms['test'], len(kept), seed)
             ctrl[seed] = (torch.from_numpy(tr), torch.from_numpy(te))
         return WordTaskData(key=self.family, words=words, rows=rows, y_train=torch.from_numpy(y['train']),
                         y_test=torch.from_numpy(y['test']), controls=ctrl, classes=kept, k=len(kept) - 1)

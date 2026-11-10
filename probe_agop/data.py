@@ -72,7 +72,7 @@ class Words:
     sentences       the tokens of each sentence; whole sentences are the model input
     sentence_index  for each word, the index of its sentence
     position        for each word, its position in that sentence
-    forms           the word forms (the type-matched control labels each form)
+    forms           the word forms (the control task labels each form)
     tags            per-word annotations, e.g. tags['upos'][i]
     """
     sentences: list = field(default_factory=list)

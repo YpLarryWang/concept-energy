@@ -30,7 +30,7 @@ from probe_agop.plot import plot_event_times, plot_layer
 CHECKPOINTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 143000]
 MODELS = {'pythia-410m': 24, 'pythia-1b': 16}       # number of transformer blocks
 REAL_SEEDS = (1001, 1002, 1003)                      # probe seeds of the real probes
-CONTROL_SEEDS = (42, 43, 44)                         # label seeds of the type-matched controls
+CONTROL_SEEDS = (42, 43, 44)                         # label seeds of the control probes
 CONTROL_INIT_OFFSET = 4000                           # the control with label seed s uses probe seed 4000 + s
 SCHEMA = 'concept-energy/v2'
 REPO = Path(__file__).resolve().parent
@@ -42,7 +42,7 @@ def task_config(model, task):
                           max_length=agop.MAX_LENGTH, position_seed=agop.POSITION_SEED, objective='next-token loss',
                           dtype='float32'),
                 representations=dict(dtype='float16', site='block output', unit=task.unit),
-                probe=dict(task.recipe(), real_seeds=list(REAL_SEEDS), control='type_matched',
+                probe=dict(task.recipe(), real_seeds=list(REAL_SEEDS), control='one random label or target per word or n-gram type',
                            control_label_seeds=list(CONTROL_SEEDS), control_init_offset=CONTROL_INIT_OFFSET))
 
 

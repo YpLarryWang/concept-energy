@@ -288,11 +288,15 @@ def main():
                     f"t^D = {te['t_D']:.0f}, t^E = {te['t_E']:.0f}, lag {te['lag']:+.2f} ({te['relation']})")
             print(f"\n{task.title}, all {len(layers)} layers: {mine}"
                   + (f"; paper: t^D = {p['t_D']:.0f}, t^E = {p['t_E']:.0f}, lag {p['lag']:+.2f}" if p else ''))
-    done = {n: json.loads((out/n/'task_events.json').read_text()) for n in tasks.TASKS if (out/n/'task_events.json').exists()}
-    done = {n: r for n, r in done.items() if r['task_events'] is not None}
-    if done:
-        plot_event_times(done, args.model, out/'event_times')
-        print(f'\nWrote {out}/event_times.png ({len(done)} task(s) with all layers)')
+    # Concurrent runs sharing --out each redraw this figure; the lock makes reading the results and writing both files
+    # one step, so the run that finishes last draws every task completed by then.
+    with data.file_lock(out/'.event_times.lock'):
+        done = {n: json.loads((out/n/'task_events.json').read_text()) for n in tasks.TASKS
+                if (out/n/'task_events.json').exists()}
+        done = {n: r for n, r in done.items() if r['task_events'] is not None}
+        if done:
+            plot_event_times(done, args.model, out/'event_times')
+            print(f'\nWrote {out}/event_times.png ({len(done)} task(s) with all layers)')
 
 
 if __name__ == '__main__':

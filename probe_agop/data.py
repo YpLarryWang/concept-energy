@@ -11,11 +11,13 @@ tokens containing a letter, and no URL-like token.
 
     python -m probe_agop.data DATA_DIR      checks every file and the derived dataset sizes
 """
+import fcntl
 import hashlib
 import os
 import random
 import re
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,6 +80,19 @@ def write_atomic(path, write):
 
 def write_text_atomic(path, text):
     write_atomic(path, lambda f: f.write(text.encode('utf-8')))
+
+
+@contextmanager
+def file_lock(path):
+    """Exclusive lock on `path` (created if missing), held for the duration of the block; other processes wait."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'a') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def keep_sentence(tokens):

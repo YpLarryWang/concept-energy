@@ -54,11 +54,11 @@ bash reproduce.sh all [MODEL]              # all tasks x all layers x 19 checkpo
 | `ner` | `NER` | UNER English EWT | entity tokens | PER, ORG, LOC | test accuracy |
 | `noun_supersense` | `SupersenseNoun` | STREUSLE 5.0 | single-word noun expressions | 12 supersenses | test accuracy |
 | `verb_supersense` | `SupersenseVerb` | STREUSLE 5.0 | single-word verb expressions | 9 supersenses | test accuracy |
-| `unigram_lp` | `UnigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t)$ | held-out $R^2$ |
-| `bigram_lp` | `BigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
-| `bigram_pmi` | `BigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1}) - \log p(w_t)$ | held-out $R^2$ |
-| `trigram_lp` | `TrigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1})$ | held-out $R^2$ |
-| `trigram_pmi` | `TrigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1}) - \log p(w_t \mid w_{t-1})$ | held-out $R^2$ |
+| `unigram_lp` | `UnigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t)$ | test $R^2$ |
+| `bigram_lp` | `BigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1})$ | test $R^2$ |
+| `bigram_pmi` | `BigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-1}) - \log p(w_t)$ | test $R^2$ |
+| `trigram_lp` | `TrigramLogProb` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1})$ | test $R^2$ |
+| `trigram_pmi` | `TrigramPMI` | WikiText-103 | token $w_t$ | $\log p(w_t \mid w_{t-2} w_{t-1}) - \log p(w_t \mid w_{t-1})$ | test $R^2$ |
 
 - **Classification tasks.** The official training and test splits are used, keeping the sentences with at least 4 tokens, at least 2 of them containing a letter, and no URL-like token. Classes with at least 100 training and 10 test words are kept, and every word is read at its last sub-word token, with its whole sentence as context (model inputs are truncated to 256 tokens, beyond which no probed word lies). The control task gives each word type one fixed random label, drawn with the class shares of the real training labels.
 - **N-gram regression tasks.** The targets are counted on WikiText-103 with the Pythia tokenizer, and the probe reads the last token $w_t$ of each n-gram in its line. The training and test sets are split by n-gram type, so no test n-gram occurs in training. The probe is a linear regression, so $k = 1$ and $U$ is its normalized weight vector. The control task gives each n-gram type a target drawn at random from the token-level targets of the same set (training or test).

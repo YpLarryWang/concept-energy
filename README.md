@@ -29,9 +29,9 @@ $$G = \frac{1}{N} \sum_{s=1}^{N} g_s g_s^\top, \qquad g_s = \frac{\partial \ell_
 
 For a probe with $K$ classes, let $U \in \mathbb{R}^{d \times k}$ hold the top $k = K - 1$ right singular vectors of its class-centered weights, where $d$ is the hidden size. Then
 
-$$\mathrm{OE} = \log_2 \frac{\operatorname{tr}(U^\top G U) / \operatorname{tr}(G)}{k / d}, \qquad \mathrm{CE} = \overline{\mathrm{OE}}_{\text{real}} - \overline{\mathrm{OE}}_{\text{control}},$$
+$$\mathrm{OE} = \log_2 \frac{\mathrm{tr}(U^\top G U) / \mathrm{tr}(G)}{k / d}, \qquad \mathrm{CE} = \overline{\mathrm{OE}}_{\text{real}} - \overline{\mathrm{OE}}_{\text{control}},$$
 
-where the bars average over the three seeds. $\mathrm{OE} = 0$ means that the probe's subspace captures the same share of $\operatorname{tr}(G)$ as a uniformly random subspace of the same dimension does in expectation, $k/d$; each additional unit doubles that share.
+where the bars average over the three seeds. $\mathrm{OE} = 0$ means that the probe's subspace captures the same share of $\mathrm{tr}(G)$ as a uniformly random subspace of the same dimension does in expectation, $k/d$; each additional unit doubles that share.
 
 ![OE, CE and decodability of POS probes at layer 8 of Pythia-410M](assets/pythia-410m_pos_layer8.png)
 

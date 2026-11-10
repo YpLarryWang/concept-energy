@@ -87,6 +87,7 @@ class TokenTaskData:
 class Classification:
     unit = 'word: block output at its last sub-word token, whole sentence as context'
     score_name = 'Test accuracy'
+    score_short = 'Acc'                      # column label of the printed table
 
     def __init__(self, name, title, family, tag, classes, label=lambda v: v, drop=(), sizes=None):
         self.name, self.title, self.family, self.tag = name, title, family, tag
@@ -165,6 +166,7 @@ def _ngram_family(root, order, tokenizer):
 class Regression:
     unit = 'token: block output at the last token of the n-gram, its WikiText-103 line (first 256 tokens) as context'
     score_name = 'Held-out R²'
+    score_short = 'R²'
 
     def __init__(self, name, title):
         self.name, self.title = name, title

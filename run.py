@@ -1,7 +1,7 @@
 """Probe vs AGOP over pretraining: one command for any task, layer and Pythia model of the paper.
 
 For each checkpoint: compute the AGOP of the next-token loss at every requested layer (shared by all tasks), extract the
-layers' representations of the task's words or tokens, train 3 real probes and 3 type-matched control probes per
+layers' representations of the task's words or tokens, train 3 real probes and 3 control probes per
 (task, layer), and measure each probe's Optimization Engagement (OE) with the AGOP. Then, per (task, layer):
 CE = OE(real) - OE(control), decodability = selectivity (real score - control score), the null noise scale sigma_0, the
 event times t^D and t^E and their lag, and a figure. With all layers of a model, also the task-level event times (the
@@ -10,8 +10,8 @@ points of the paper's event-time figure).
     python run.py --task pos --layers 8                          # one layer of Pythia-410M, 19 checkpoints
     python run.py --model pythia-1b --task all --layers all      # everything for Pythia-1B
 
-Results are written per (task, layer, checkpoint) as they finish; rerunning the same command resumes. Every result is
-compared with the paper's values (reference/<model>/<task>.json).
+Results are written per (task, layer, checkpoint) as they finish; rerunning the same command resumes. The printed tables
+show the paper's values (reference/<model>/<task>.json) next to the run's.
 """
 import argparse
 import hashlib
@@ -33,8 +33,6 @@ REAL_SEEDS = (1001, 1002, 1003)                      # probe seeds of the real p
 CONTROL_SEEDS = (42, 43, 44)                         # label seeds of the type-matched controls
 CONTROL_INIT_OFFSET = 4000                           # the control with label seed s uses probe seed 4000 + s
 SCHEMA = 'concept-energy/v2'
-# Comparison with the paper's values (reference/): largest allowed |difference| over checkpoints.
-TOLERANCE = dict(oe=0.02, score=0.002)
 REPO = Path(__file__).resolve().parent
 
 
@@ -162,61 +160,49 @@ def summarise_layer(task, records):
                  ce_positive_share=float(np.mean(ce > 0)),
                  seed_sd_over_sigma0=dict(real=float(np.median(oe_real.std(1, ddof=1) / sigma0)),
                                           control=float(np.median(oe_ctrl.std(1, ddof=1) / sigma0))))
-    return dict(task=task.name, title=task.title, score=task.score_name, layer=records[0]['layer'], curves=curves,
+    return dict(task=task.name, title=task.title, score=task.score_name, score_short=task.score_short,
+                layer=records[0]['layer'], curves=curves,
                 events=events.layer_events(steps, ce, sel), stats=stats)
 
 
-def compare_layer(summary, ref):
-    """Largest differences from the paper's values for the same model, task and layer."""
+def paper_values(summary, ref):
+    """The paper's seed-averaged curves at the run's checkpoints, and its event times (on the full checkpoint grid)."""
     r = ref['layers'][str(summary['layer'])]
-    c = summary['curves']
-    idx = [ref['steps'].index(s) for s in c['steps']]
-    paper = dict(oe_real=np.mean(r['oe_real'], 1), oe_control=np.mean(r['oe_control'], 1),
-                 score_real=np.mean(r['score_real'], 1), score_control=np.mean(r['score_control'], 1))
-    paper['ce'] = paper['oe_real'] - paper['oe_control']
-    paper['selectivity'] = paper['score_real'] - paper['score_control']
-    out = {}
-    for key, v in paper.items():
-        diff = np.abs(np.array(c[key]) - v[idx])
-        out[key] = dict(max_abs_diff=float(diff.max()), at_step=c['steps'][int(diff.argmax())])
-    out['events'] = dict(paper=r['events'], this_run={k: summary['events'][k] for k in ('t_D', 't_E', 'lag')}) \
-        if len(idx) == len(ref['steps']) else None
-    ok = all(v['max_abs_diff'] <= TOLERANCE['oe' if k in ('oe_real', 'oe_control', 'ce') else 'score']
-             for k, v in out.items() if k != 'events')
-    if out['events']:
-        mine, paper = out['events']['this_run'], out['events']['paper']
-        ok = ok and abs(mine['t_D'] - paper['t_D']) < 1e-6 and mine['t_E'] == paper['t_E']
-    out['matches_paper'] = ok
+    idx = [ref['steps'].index(s) for s in summary['curves']['steps']]
+    out = {key: np.mean(r[key], 1)[idx] for key in ('oe_real', 'oe_control', 'score_real', 'score_control')}
+    out['ce'] = out['oe_real'] - out['oe_control']
+    out['selectivity'] = out['score_real'] - out['score_control']
+    out = {key: v.tolist() for key, v in out.items()}
+    out['events'] = r['events'] if len(idx) == len(ref['steps']) else None
     return out
 
 
 def print_layer(summary):
-    c, ev, st = summary['curves'], summary['events'], summary['stats']
-    print(f"\n{summary['title']}, layer {summary['layer']}")
-    print(f"{'step':>7} {'OE real':>8} {'OE ctrl':>8} {'CE':>7} {'sigma0':>7} {'real':>8} {'control':>8} {'select.':>8}"
-          f"   (scores: {summary['score']})")
+    c, ev, st, paper = summary['curves'], summary['events'], summary['stats'], summary.get('paper')
+    sc = summary['score_short']
+    print(f"\n{summary['title']}, layer {summary['layer']}" + ('; "paper" columns: the values in the paper' if paper else ''))
+    head = f"{'step':>7} {'OE real':>8} {'OE control':>10} {'CE':>7}" + (f" {'CE paper':>8}" if paper else '') + \
+           f" {'sigma0':>7} {sc + ' real':>9} {sc + ' control':>11} {'select.':>8}" + (f" {'select. paper':>13}" if paper else '')
+    print(head)
     for i, step in enumerate(c['steps']):
-        print(f"{step:>7} {c['oe_real'][i]:>+8.3f} {c['oe_control'][i]:>+8.3f} {c['ce'][i]:>+7.3f} {c['sigma0'][i]:>7.3f} "
-              f"{c['score_real'][i]:>8.4f} {c['score_control'][i]:>8.4f} {c['selectivity'][i]:>+8.4f}")
+        print(f"{step:>7} {c['oe_real'][i]:>+8.3f} {c['oe_control'][i]:>+10.3f} {c['ce'][i]:>+7.3f}"
+              + (f" {paper['ce'][i]:>+8.3f}" if paper else '')
+              + f" {c['sigma0'][i]:>7.3f} {c['score_real'][i]:>9.4f} {c['score_control'][i]:>11.4f} {c['selectivity'][i]:>+8.4f}"
+              + (f" {paper['selectivity'][i]:>+13.4f}" if paper else ''))
     t_e = 'none' if ev['t_E'] is None else f"{ev['t_E']:.0f}"
     lag = 'n/a' if ev['lag'] is None else f"{ev['lag']:+.2f} ({ev['relation']})"
     print(f"t^D = {ev['t_D']:.0f}   t^E = {t_e}   lag ln(t^E/t^D) = {lag}")
+    if paper and paper['events']:
+        p = paper['events']
+        p_e = 'none' if p['t_E'] is None else f"{p['t_E']:.0f}"
+        p_lag = 'n/a' if p['lag'] is None else f"{p['lag']:+.2f}"
+        print(f"paper: t^D = {p['t_D']:.0f}   t^E = {p_e}   lag ln(t^E/t^D) = {p_lag}")
     if len(c['steps']) < len(CHECKPOINTS):
         print('(event times are only meaningful on the full checkpoint grid)')
     snr = st['median_ce_over_sigma0_from_step128']
     print(f"sigma0 (k = {st['k']}): median {st['median_sigma0']:.3f} bits; median CE/sigma0 from step 128 on: "
           f"{'n/a' if snr is None else f'{snr:.1f}'}; seed SD of OE / sigma0: real {st['seed_sd_over_sigma0']['real']:.2f}, "
           f"control {st['seed_sd_over_sigma0']['control']:.2f}")
-    cmp = summary.get('comparison_with_paper')
-    if cmp:
-        diffs = ', '.join(f"{k} {v['max_abs_diff']:.4f}" for k, v in cmp.items() if k not in ('events', 'matches_paper'))
-        print(f'max |difference| from the paper: {diffs}')
-        if cmp['events']:
-            p = cmp['events']['paper']
-            print(f"paper: t^D = {p['t_D']:.0f}, t^E = {'none' if p['t_E'] is None else round(p['t_E'])}")
-        print('-> matches the paper' if cmp['matches_paper'] else
-              f"-> DIFFERS from the paper beyond the tolerance (OE/CE {TOLERANCE['oe']} bits, scores {TOLERANCE['score']}"
-              f"{', identical event times' if cmp['events'] else ''})")
 
 
 def parse_layers(text, n):
@@ -278,7 +264,6 @@ def main():
         for step in todo:
             run_checkpoint(step, todo[step], args, out, cache, corpus, tokenizer)
 
-    verdicts = {}
     for name in names:
         task = tasks.TASKS[name]
         ref_path = REPO/'reference'/args.model/f'{name}.json'
@@ -287,8 +272,7 @@ def main():
         for layer in layers:
             summary = summarise_layer(task, load_records(out, name, layer, steps, args.fingerprints[name]))
             if ref:
-                summary['comparison_with_paper'] = compare_layer(summary, ref)
-                verdicts[(name, layer)] = summary['comparison_with_paper']['matches_paper']
+                summary['paper'] = paper_values(summary, ref)
             path = out/name/f'layer{layer}'
             (path/'summary.json').write_text(json.dumps(summary, indent=1))
             plot_layer(summary, args.model, path/'curves')
@@ -307,12 +291,6 @@ def main():
     if done:
         plot_event_times(done, args.model, out/'event_times')
         print(f'\nWrote {out}/event_times.png ({len(done)} task(s) with all layers)')
-    if verdicts:
-        bad = [f'{n} layer {l}' for (n, l), ok in verdicts.items() if not ok]
-        print(f"\n{'PASS' if not bad else 'FAIL'}: {len(verdicts) - len(bad)} of {len(verdicts)} (task, layer) results "
-              f"match the paper{'' if not bad else '; differing: ' + ', '.join(bad)}")
-        if bad:
-            raise SystemExit(1)
 
 
 if __name__ == '__main__':

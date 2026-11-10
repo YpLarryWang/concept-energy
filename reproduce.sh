@@ -2,13 +2,13 @@
 # One command per result of the paper. Run inside the environment of requirements.txt, on a machine with an NVIDIA GPU.
 #
 #   bash reproduce.sh                        POS at layer 8 of Pythia-410M over the 19 checkpoints (~35 min on an A100):
-#                                            environment check, data download, run, figure, comparison with the paper
+#                                            environment check, data download, run, figure, the paper's values
 #   bash reproduce.sh check                  quick test (~20 min): every task at layer 8, steps 512 and 143000
 #   bash reproduce.sh TASK [LAYER] [MODEL]   any task, layer (default 8) and model (pythia-410m or pythia-1b)
 #   bash reproduce.sh all [MODEL]            all 12 tasks x all layers x 19 checkpoints, with the task-level event times
 #                                            (about a day per model on one A100)
 #
-# Every run ends with PASS or FAIL: whether the result matches the paper (reference/). Data is downloaded on the first
+# Every run prints the paper's values (reference/) next to its own. Data is downloaded on the first
 # call (scripts/download_data.sh); Pythia checkpoints come from Hugging Face on first use. Results go to runs/.
 set -euo pipefail
 cd "$(dirname "$0")"

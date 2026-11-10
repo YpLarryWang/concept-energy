@@ -228,7 +228,7 @@ def streusle_words(root, split, prefix):
 
 
 def wikitext_lines(root):
-    """Filtered, whitespace-normalised lines of all WikiText-103 parquet files, in sorted file-name order."""
+    """Filtered, whitespace-normalized lines of all WikiText-103 parquet files, in sorted file-name order."""
     import pyarrow.parquet as pq
     lines = []
     for name in sorted(n for n in FILES if n.startswith('wikitext-103-v1/')):

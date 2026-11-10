@@ -41,7 +41,7 @@ STATS_VERSION = 'wikitext-103-v1/pythia-tokenizer/v1'
 
 
 def wikitext_pool(root):
-    """All non-empty, URL-free lines of the four WikiText-103 parquet files (whitespace-normalised, sorted file-name order),
+    """All non-empty, URL-free lines of the four WikiText-103 parquet files (whitespace-normalized, sorted file-name order),
     and for each whether it passes the sentence filter."""
     import pyarrow.parquet as pq
     lines, strict = [], []

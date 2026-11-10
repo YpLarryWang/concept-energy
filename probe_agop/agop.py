@@ -1,4 +1,4 @@
-"""Average gradient outer product (AGOP) of the language-modelling loss at residual-stream sites.
+"""Average gradient outer product (AGOP) of the language-modeling loss at residual-stream sites.
 
     G_layer = mean over sites s of  g_s g_s^T,   g_s = d loss_s / d h_layer[position of s]
 

@@ -1,9 +1,9 @@
 """Linear probe training (the recipe of the paper's probes).
 
-Inputs are mean-centred with the float64 mean of the training representations (the same mean is subtracted from the
+Inputs are mean-centered with the float64 mean of the training representations (the same mean is subtracted from the
 test set). A probe is a single nn.Linear layer trained with Adam (lr 1e-3, weight decay 1e-4 on weights and bias),
 batch 256, 10 epochs; the final epoch is kept. Classification probes minimise cross-entropy, regression probes (one
-output) the mean squared error. The probe seed fixes both the initialisation and the shuffling order.
+output) the mean squared error. The probe seed fixes both the initialization and the shuffling order.
 """
 import torch
 import torch.nn.functional as F
@@ -65,8 +65,8 @@ def accuracy(probe, X, y):
 
 
 def train_regression(X, y, seed, device, epochs=EPOCHS, lr=LR, weight_decay=WEIGHT_DECAY, batch_size=BATCH_SIZE):
-    """Returns the trained nn.Linear(d, 1) (on `device`). X float32 [n, d], y float32 [n] (centred targets).
-    As in the paper's n-gram runs, initialisation and shuffling draw from the global torch generator seeded here."""
+    """Returns the trained nn.Linear(d, 1) (on `device`). X float32 [n, d], y float32 [n] (centered targets).
+    As in the paper's n-gram runs, initialization and shuffling draw from the global torch generator seeded here."""
     torch.manual_seed(seed)
     probe = torch.nn.Linear(X.shape[1], 1).to(device)
     loader = DataLoader(_Indices(len(y)), batch_size=batch_size, shuffle=True, collate_fn=lambda b: b)

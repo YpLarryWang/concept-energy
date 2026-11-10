@@ -98,8 +98,8 @@ class Classification:
 
     def recipe(self):
         return dict(kind='classification', lr=probe.LR, weight_decay=probe.WEIGHT_DECAY, batch_size=probe.BATCH_SIZE,
-                    epochs=probe.EPOCHS, inputs='centred with the training mean', subspace='top n_classes - 1 right '
-                    'singular vectors of the class-centred weights', min_train=MIN_TRAIN, min_test=MIN_TEST)
+                    epochs=probe.EPOCHS, inputs='centered with the training mean', subspace='top n_classes - 1 right '
+                    'singular vectors of the class-centered weights', min_train=MIN_TRAIN, min_test=MIN_TEST)
 
     def load(self, root, tokenizer=None):
         words = dict(zip(('train', 'test'), _family(str(root), self.family)))
@@ -176,19 +176,19 @@ class Regression:
 
     def recipe(self):
         return dict(kind='regression', loss='mean squared error', lr=probe.LR, weight_decay=probe.WEIGHT_DECAY,
-                    batch_size=probe.BATCH_SIZE, epochs=probe.EPOCHS, inputs='centred with the train-pool mean',
-                    targets='centred with the train-pool mean', subspace='the normalised weight vector (k = 1)')
+                    batch_size=probe.BATCH_SIZE, epochs=probe.EPOCHS, inputs='centered with the training-set mean',
+                    targets='centered with the training-set mean', subspace='the normalized weight vector (k = 1)')
 
     def load(self, root, tokenizer):
         lines, out, cols, train, test = _ngram_family(str(root), self.order, tokenizer)
         y = out[f'y_{self.name}']
         key = ngram.key_index(cols)
         rows = np.concatenate([train, test])
-        centred = lambda v: ngram.centre_targets(v, train)[torch.from_numpy(rows)]
-        yc = centred(y)
+        centered = lambda v: ngram.centre_targets(v, train)[torch.from_numpy(rows)]
+        yc = centered(y)
         ctrl = {}
         for seed in CONTROL_SEEDS:
-            c = centred(ngram.pool_control(y, key, train, test, seed))
+            c = centered(ngram.pool_control(y, key, train, test, seed))
             ctrl[seed] = (c[:train.size], c[train.size:])
         return TokenTaskData(key=f'ngram_order{self.order}', lines=lines, line_of=out['line_of'][rows],
                              position=out['position'][rows], n_train=train.size, y_train=yc[:train.size],

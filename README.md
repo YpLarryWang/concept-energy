@@ -2,6 +2,10 @@
 
 Code for the NeurIPS 2026 paper by Yupei Wang, Neil Mallinar, Mikhail Belkin and Alex Warstadt (UC San Diego).
 
+[🤗 Precomputed probes & AGOP](https://huggingface.co/disentangle-concept-learning) · [Quick start](#one-command) · [Artifact details](#precomputed-probes-and-agop-matrices)
+
+Explore the released probes and AGOP matrices without rerunning the language models.
+
 A linear probe tells us that a concept can be read out of a layer. This code asks a different question: does the language-modeling loss itself care about the probe's directions? At each pretraining checkpoint we compare the probe's weight subspace with the average gradient outer product (AGOP) of the next-token loss at the same layer, and track how the two line up over training.
 
 ## One command
@@ -103,6 +107,9 @@ The run also prints a table of all checkpoints and, for each task and layer, the
 ## Precomputed probes and AGOP matrices
 
 All probes and AGOP matrices behind the paper's numbers are on Hugging Face, in the organization [disentangle-concept-learning](https://huggingface.co/disentangle-concept-learning): one dataset with the AGOP matrices of both models at every layer and checkpoint (`agop`), and one dataset of probes per task (`cls-*` and `reg-*`; 54,720 probes in all, each with its OE and test score). Their pages show how to compute OE from these files without running a language model.
+
+- [Download AGOP matrices](https://huggingface.co/datasets/disentangle-concept-learning/agop)
+- [Browse all task probes](https://huggingface.co/disentangle-concept-learning)
 
 ## How the code is organized
 
